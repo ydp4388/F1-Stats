@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Lap Times</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #chartContainer {
+            width: 100%;
+            height: 500px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Formula One Lap Times</h1>
+    <div id="chartContainer">
+        <canvas id="lapTimesChart"></canvas>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('lapTimesChart').getContext('2d');
+        let chart;
+
+        function generateRandomLapTime() {
+            // Generate a random time between 80000ms (1:20.000) and 85000ms (1:25.000)
+            return 80000 + Math.random() * 5000;
+        }
+
+        function formatLapTime(milliseconds) {
+            const minutes = Math.floor(milliseconds / 60000);
+            const seconds = Math.floor((milliseconds % 60000) / 1000);
+            const ms = Math.floor(milliseconds % 1000);
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+        }
+
+        function updateLapTimes() {
+            // Mock data - replace this with actual API call
+            const mockData = {
+                labels: Array.from({ length: 50 }, (_, i) => `Lap ${i + 1}`),
+                datasets: [
+                    {
+                        label: 'Lewis Hamilton',
+                        data: Array.from({ length: 50 }, generateRandomLapTime),
+                        borderColor: 'rgb(255, 99, 132)',
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Max Verstappen',
+                        data: Array.from({ length: 50 }, generateRandomLapTime),
+                        borderColor: 'rgb(54, 162, 235)',
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Charles Leclerc',
+                        data: Array.from({ length: 50 }, generateRandomLapTime),
+                        borderColor: 'rgb(255, 206, 86)',
+                        tension: 0.1
+                    }
+                    // Add more drivers as needed
+                ]
+            };
+
+            if (chart) {
+                chart.data = mockData;
+                chart.update();
+            } else {
+                chart = new Chart(ctx, {
+                    type: 'line',
+                    data: mockData,
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'F1 Lap Times'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        label += formatLapTime(context.raw);
+                                        return label;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: 'Lap Number'
+                                }
+                            },
+                            y: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: 'Lap Time'
+                                },
+                                min: 80000,
+                                max: 85000,
+                                ticks: {
+                                    callback: function(value) {
+                                        return formatLapTime(value);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Update lap times every 10 seconds
+        setInterval(updateLapTimes, 10000);
+
+        // Initial update
+        updateLapTimes();
+    </script>
+</body>
+</html>
