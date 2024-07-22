@@ -23,10 +23,14 @@
     <div id="chartContainer">
         <canvas id="lapTimesChart"></canvas>
     </div>
+    {{ room_name|json_script:"room-name" }}
 
     <script>
         const ctx = document.getElementById('lapTimesChart').getContext('2d');
         let chart;
+
+        var laps = Array.from({ length: 20 }, (_, i) => i + 1);
+        var drivers = new Map();
 
         function generateRandomLapTime() {
             // Generate a random time between 80000ms (1:20.000) and 85000ms (1:25.000)
@@ -40,40 +44,27 @@
             return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
         }
 
-        function updateLapTimes() {
-            // Mock data - replace this with actual API call
-            const mockData = {
-                labels: Array.from({ length: 50 }, (_, i) => `Lap ${i + 1}`),
-                datasets: [
-                    {
-                        label: 'Lewis Hamilton',
-                        data: Array.from({ length: 50 }, generateRandomLapTime),
-                        borderColor: 'rgb(255, 99, 132)',
-                        tension: 0.1
-                    },
-                    {
-                        label: 'Max Verstappen',
-                        data: Array.from({ length: 50 }, generateRandomLapTime),
-                        borderColor: 'rgb(54, 162, 235)',
-                        tension: 0.1
-                    },
-                    {
-                        label: 'Charles Leclerc',
-                        data: Array.from({ length: 50 }, generateRandomLapTime),
-                        borderColor: 'rgb(255, 206, 86)',
-                        tension: 0.1
-                    }
-                    // Add more drivers as needed
-                ]
+        function updateLapTimes(lapTimeData) {
+            const labels = lapTimeData.laps.map(lap => `Lap ${lap}`);
+            const datasets = lapTimeData.drivers.map(driver => ({
+                label: driver.name,
+                data: Array.from({ length: laps.length }, (_, i) => driver.lapTimes.get(i) ? driver.lapTimes.has(i): 0),
+                borderColor: driver.color,
+                tension: 0.1
+            }));
+
+            const chartData = {
+                labels: labels,
+                datasets: datasets
             };
 
             if (chart) {
-                chart.data = mockData;
+                chart.data = chartData;
                 chart.update();
             } else {
                 chart = new Chart(ctx, {
                     type: 'line',
-                    data: mockData,
+                    data: chartData,
                     options: {
                         responsive: true,
                         plugins: {
@@ -122,11 +113,63 @@
             }
         }
 
-        // Update lap times every 10 seconds
-        setInterval(updateLapTimes, 10000);
+        const roomName = JSON.parse(document.getElementById('room-name').textContent);
 
-        // Initial update
-        updateLapTimes();
+        const chatSocket = new WebSocket(
+            'ws://'
+            + window.location.host
+            + '/ws/chat/'
+            + roomName
+            + '/'
+        );
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            if (data.laps > laps.length){
+                laps.concat(Array.from({ length: laps.length-data.laps }, (_, i) => i + laps.length))
+            }
+            for(driver in data.drivers){
+                if(drivers.has(driver.name)){
+                    drivers.get(driver.name).lapTimes.put(data.laps, data.drivers.lapTime)
+                }
+                else{
+                    drivers.put(driver.name, {
+                        lapTimes: new Map([[data.laps, data.drivers.lapTime]]),
+                        name: driver.name,
+                        color: driver.color
+                    })
+                }
+            }
+            // document.querySelector('#chat-log').value += (data.message + '\n');
+            updateLapTimes({laps: laps, drivers: drivers});
+        };
+
+            // const mockApiResponse = {
+            //     laps: Array.from({ length: 50 }, (_, i) => i + 1),
+            //     drivers: [
+            //         {
+            //             name: 'Lewis Hamilton',
+            //             color: 'rgb(255, 99, 132)',
+            //             lapTimes: Array.from({ length: 50 }, () => 80000 + Math.random() * 5000)
+            //         },
+            //         {
+            //             name: 'Max Verstappen',
+            //             color: 'rgb(54, 162, 235)',
+            //             lapTimes: Array.from({ length: 50 }, () => 80000 + Math.random() * 5000)
+            //         },
+            //         {
+            //             name: 'Charles Leclerc',
+            //             color: 'rgb(255, 206, 86)',
+            //             lapTimes: Array.from({ length: 50 }, () => 80000 + Math.random() * 5000)
+            //         }
+            //     ]
+            // };
+
+        // Update lap times every 10 seconds
+        // setInterval(updateLapTimes, 10000);
+
+        // // Initial update
+        // updateLapTimes();
     </script>
 </body>
 </html>
