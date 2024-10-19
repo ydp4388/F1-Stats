@@ -3,116 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F1 Lap Times</title>
+    <title>Racing Data Graph</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        #chartContainer {
-            width: 100%;
-            height: 500px;
-        }
-    </style>
 </head>
 <body>
-    <h1>Formula One Lap Times</h1>
-    <div id="chartContainer">
-        <canvas id="lapTimesChart"></canvas>
-    </div>
+    <textarea id="chat-log" cols="100" rows="20"></textarea><br>
+    <input id="chat-message-input" type="text" size="100"><br>
+    <input id="chat-message-submit" type="button" value="Send">
     {{ room_name|json_script:"room-name" }}
+    <div style="width: 80%; margin: auto;">
+        <h1>Lap Times Graph</h1>
+        <canvas id="racingChart"></canvas>
+    </div>
 
     <script>
-        const ctx = document.getElementById('lapTimesChart').getContext('2d');
-        let chart;
-
-        var laps = Array.from({ length: 20 }, (_, i) => i + 1);
-        var drivers = new Map();
-
-        function generateRandomLapTime() {
-            // Generate a random time between 80000ms (1:20.000) and 85000ms (1:25.000)
-            return 80000 + Math.random() * 5000;
-        }
-
-        function formatLapTime(milliseconds) {
-            const minutes = Math.floor(milliseconds / 60000);
-            const seconds = Math.floor((milliseconds % 60000) / 1000);
-            const ms = Math.floor(milliseconds % 1000);
-            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
-        }
-
-        function updateLapTimes(lapTimeData) {
-            const labels = lapTimeData.laps.map(lap => `Lap ${lap}`);
-            const datasets = lapTimeData.drivers.map(driver => ({
-                label: driver.name,
-                data: Array.from({ length: laps.length }, (_, i) => driver.lapTimes.get(i) ? driver.lapTimes.has(i): 0),
-                borderColor: driver.color,
-                tension: 0.1
-            }));
-
-            const chartData = {
-                labels: labels,
-                datasets: datasets
-            };
-
-            if (chart) {
-                chart.data = chartData;
-                chart.update();
-            } else {
-                chart = new Chart(ctx, {
-                    type: 'line',
-                    data: chartData,
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            title: {
-                                display: true,
-                                text: 'F1 Lap Times'
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) {
-                                            label += ': ';
-                                        }
-                                        label += formatLapTime(context.raw);
-                                        return label;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                display: true,
-                                title: {
-                                    display: true,
-                                    text: 'Lap Number'
-                                }
-                            },
-                            y: {
-                                display: true,
-                                title: {
-                                    display: true,
-                                    text: 'Lap Time'
-                                },
-                                min: 80000,
-                                max: 85000,
-                                ticks: {
-                                    callback: function(value) {
-                                        return formatLapTime(value);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        }
-
         const roomName = JSON.parse(document.getElementById('room-name').textContent);
 
         const chatSocket = new WebSocket(
@@ -124,52 +28,136 @@
         );
 
         chatSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
-            if (data.laps > laps.length){
-                laps.concat(Array.from({ length: laps.length-data.laps }, (_, i) => i + laps.length))
-            }
-            for(driver in data.drivers){
-                if(drivers.has(driver.name)){
-                    drivers.get(driver.name).lapTimes.put(data.laps, data.drivers.lapTime)
-                }
-                else{
-                    drivers.put(driver.name, {
-                        lapTimes: new Map([[data.laps, data.drivers.lapTime]]),
-                        name: driver.name,
-                        color: driver.color
-                    })
-                }
-            }
-            // document.querySelector('#chat-log').value += (data.message + '\n');
-            updateLapTimes({laps: laps, drivers: drivers});
+            processLaptimeUpdate(e);
         };
 
-            // const mockApiResponse = {
-            //     laps: Array.from({ length: 50 }, (_, i) => i + 1),
-            //     drivers: [
-            //         {
-            //             name: 'Lewis Hamilton',
-            //             color: 'rgb(255, 99, 132)',
-            //             lapTimes: Array.from({ length: 50 }, () => 80000 + Math.random() * 5000)
-            //         },
-            //         {
-            //             name: 'Max Verstappen',
-            //             color: 'rgb(54, 162, 235)',
-            //             lapTimes: Array.from({ length: 50 }, () => 80000 + Math.random() * 5000)
-            //         },
-            //         {
-            //             name: 'Charles Leclerc',
-            //             color: 'rgb(255, 206, 86)',
-            //             lapTimes: Array.from({ length: 50 }, () => 80000 + Math.random() * 5000)
-            //         }
-            //     ]
-            // };
+        let racingData = {
+            drivers: {},
+            timestamp: null
+        };
 
-        // Update lap times every 10 seconds
-        // setInterval(updateLapTimes, 10000);
+        function processLaptimeUpdate(update) {
+            // Parse the update if it's a string
+            const data = typeof update === 'string' ? JSON.parse(update) : update;
 
-        // // Initial update
-        // updateLapTimes();
+            // Update the timestamp
+            racingData.timestamp = data.timestamp || new Date().toISOString();
+
+            // Process each driver's data
+            Object.entries(data.Lines || {}).forEach(([driverNumber, driverData]) => {
+                if (!racingData.drivers[driverNumber]) {
+                    racingData.drivers[driverNumber] = { laps: [] };
+                }
+
+                if (driverData.Stints) {
+                    Object.values(driverData.Stints).forEach(stint => {
+                        if (stint.LapTime && stint.LapNumber) {
+                            // Convert lap time to seconds
+                            const lapTimeSeconds = convertLapTimeToSeconds(stint.LapTime);
+
+                            // Check if this lap already exists
+                            const existingLapIndex = racingData.drivers[driverNumber].laps.findIndex(
+                                lap => lap.lapNumber === stint.LapNumber
+                            );
+
+                            if (existingLapIndex !== -1) {
+                                // Update existing lap
+                                racingData.drivers[driverNumber].laps[existingLapIndex] = {
+                                    lapNumber: stint.LapNumber,
+                                    lapTime: lapTimeSeconds,
+                                    timestamp: data.timestamp
+                                };
+                            } else {
+                                // Add new lap
+                                racingData.drivers[driverNumber].laps.push({
+                                    lapNumber: stint.LapNumber,
+                                    lapTime: lapTimeSeconds,
+                                    timestamp: data.timestamp
+                                });
+                            }
+
+                            // Sort laps by lap number
+                            racingData.drivers[driverNumber].laps.sort((a, b) => a.lapNumber - b.lapNumber);
+                        }
+                    });
+                }
+            });
+
+            return racingData;
+        }
+
+        function convertLapTimeToSeconds(lapTime) {
+            const [minutes, seconds] = lapTime.split(':');
+            return parseFloat(minutes) * 60 + parseFloat(seconds);
+        }
+
+        function processRacingData(data) {
+            const parsedData = JSON.parse(data);
+            const chartData = {};
+
+            Object.entries(parsedData.drivers).forEach(([driverNumber, driverData]) => {
+                if (driverData.stints) {
+                    chartData[driverNumber] = Object.values(driverData.stints).map(stint => ({
+                        x: stint.lap_number,
+                        y: convertLapTimeToSeconds(stint.lap_time)
+                    }));
+                }
+            });
+
+            return chartData;
+        }
+
+        function createChart(chartData) {
+            const ctx = document.getElementById('racingChart').getContext('2d');
+            const datasets = Object.entries(chartData).map(([driverNumber, data], index) => ({
+                label: `Driver ${driverNumber}`,
+                data: data,
+                borderColor: `hsl(${index * 137.5 % 360}, 70%, 50%)`,
+                fill: false
+            }));
+
+            new Chart(ctx, {
+                type: 'line',
+                data: { datasets: datasets },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'Lap Number'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Lap Time (seconds)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toFixed(3)} s`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Process the data and create the chart
+        try {
+            const chartData = processRacingData(racingData);
+            createChart(chartData);
+        } catch (error) {
+            console.error("Error processing racing data:", error);
+            document.body.innerHTML += '<p style="color: red;">Error: Unable to process racing data</p>';
+        }
     </script>
 </body>
 </html>
