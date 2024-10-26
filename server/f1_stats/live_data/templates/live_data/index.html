@@ -28,7 +28,30 @@
         );
 
         chatSocket.onmessage = function(e) {
-            processLaptimeUpdate(e);
+            console.log("Here");
+            console.log(e);
+            const data = JSON.parse(e.data);
+            document.querySelector('#chat-log').value += (data.message + '\n');
+            // processLaptimeUpdate(e);
+        };
+        chatSocket.onclose = function(e) {
+            console.error('Chat socket closed unexpectedly');
+        };
+
+        document.querySelector('#chat-message-input').focus();
+        document.querySelector('#chat-message-input').onkeyup = function(e) {
+            if (e.key === 'Enter') {  // enter, return
+                document.querySelector('#chat-message-submit').click();
+            }
+        };
+
+        document.querySelector('#chat-message-submit').onclick = function(e) {
+            const messageInputDom = document.querySelector('#chat-message-input');
+            const message = messageInputDom.value;
+            chatSocket.send(JSON.stringify({
+                'message': message
+            }));
+            messageInputDom.value = '';
         };
 
         let racingData = {
@@ -151,13 +174,13 @@
         }
 
         // Process the data and create the chart
-        try {
-            const chartData = processRacingData(racingData);
-            createChart(chartData);
-        } catch (error) {
-            console.error("Error processing racing data:", error);
-            document.body.innerHTML += '<p style="color: red;">Error: Unable to process racing data</p>';
-        }
+        // try {
+        //     const chartData = processRacingData(racingData);
+        //     createChart(chartData);
+        // } catch (error) {
+        //     console.error("Error processing racing data:", error);
+        //     document.body.innerHTML += '<p style="color: red;">Error: Unable to process racing data</p>';
+        // }
     </script>
 </body>
 </html>
