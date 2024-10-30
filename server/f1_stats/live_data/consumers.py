@@ -8,14 +8,21 @@ from .tasks import add
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_name = self.scope["url_route"]["kwargs"]["room_name"]
-        self.room_group_name = "chat_%s" % self.room_name
+        self.room_group_name = f"chat_{self.room_name}"
 
         # Join room group
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
 
         await self.accept()
 
-        add.delay(1,2,'test')
+        # print(self.room_group_name)
+        # print(self.channel_layer)
+        add.delay(1,2,None)
+        # await self.channel_layer.group_send('chat_chat',{
+        #     "type": "chat_message",
+        #     "message": "Test2"
+        # })
+        print('2')
 
     async def disconnect(self, close_code):
         # Leave room group
@@ -31,7 +38,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.room_group_name, {"type": "chat_message", "message": message}
         )
 
-        add.delay(1,2,'test')
+        # print(text_data)
+        # add.delay(1,2,'test')
+        # print(11)
 
     # Receive message from room group
     async def chat_message(self, event):

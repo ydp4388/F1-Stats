@@ -18,6 +18,8 @@
 
     <script>
         const roomName = JSON.parse(document.getElementById('room-name').textContent);
+        var chart_created = false;
+        var chartInstance = null;
 
         const chatSocket = new WebSocket(
             'ws://'
@@ -28,11 +30,20 @@
         );
 
         chatSocket.onmessage = function(e) {
-            console.log("Here");
-            console.log(e);
+            // console.log("Here");
+            // console.log(e);
             const data = JSON.parse(e.data);
             document.querySelector('#chat-log').value += (data.message + '\n');
-            // processLaptimeUpdate(e);
+            if(chart_created){
+                console.log("Update");
+                console.log(chartInstance);
+                processLaptimeUpdate(data.message);
+            }
+            else{
+                console.log("Create");
+                console.log(data);
+                initChart(data.message);
+            }
         };
         chatSocket.onclose = function(e) {
             console.error('Chat socket closed unexpectedly');
@@ -106,6 +117,8 @@
                 }
             });
 
+            updateChartData(racingData);
+
             return racingData;
         }
 
@@ -115,7 +128,9 @@
         }
 
         function processRacingData(data) {
-            const parsedData = JSON.parse(data);
+            // console.log(data);
+            // console.log(typeof data);
+            const parsedData = data;
             const chartData = {};
 
             Object.entries(parsedData.drivers).forEach(([driverNumber, driverData]) => {
@@ -130,6 +145,42 @@
             return chartData;
         }
 
+         function updateChartData(newData) {
+            if (!chartInstance) {
+                createChart(newData);
+                return;
+            }
+
+            // Update existing datasets or add new ones
+            const existingDatasets = chartInstance.data.datasets;
+            const newDatasets = Object.entries(newData).map(([driverNumber, data], index) => ({
+                label: `Driver ${driverNumber}`,
+                data: data,
+                borderColor: `hsl(${index * 137.5 % 360}, 70%, 50%)`,
+                fill: false
+            }));
+
+            // Remove extra datasets if new data has fewer drivers
+            while (existingDatasets.length > newDatasets.length) {
+                existingDatasets.pop();
+            }
+
+            // Update or add datasets
+            newDatasets.forEach((newDataset, index) => {
+                if (index < existingDatasets.length) {
+                    // Update existing dataset
+                    existingDatasets[index].data = newDataset.data;
+                    existingDatasets[index].label = newDataset.label;
+                } else {
+                    // Add new dataset
+                    existingDatasets.push(newDataset);
+                }
+            });
+
+            // Update the chart
+            chartInstance.update('none'); // 'none' for better performance
+        }
+
         function createChart(chartData) {
             const ctx = document.getElementById('racingChart').getContext('2d');
             const datasets = Object.entries(chartData).map(([driverNumber, data], index) => ({
@@ -139,7 +190,7 @@
                 fill: false
             }));
 
-            new Chart(ctx, {
+            chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: { datasets: datasets },
                 options: {
@@ -174,13 +225,16 @@
         }
 
         // Process the data and create the chart
-        // try {
-        //     const chartData = processRacingData(racingData);
-        //     createChart(chartData);
-        // } catch (error) {
-        //     console.error("Error processing racing data:", error);
-        //     document.body.innerHTML += '<p style="color: red;">Error: Unable to process racing data</p>';
-        // }
+        function initChart(racingData){
+            try {
+                const chartData = processRacingData(racingData);
+                createChart(chartData);
+                chart_created = true;
+            } catch (error) {
+                console.error("Error processing racing data:", error);
+                document.body.innerHTML += '<p style="color: red;">Error: Unable to process racing data</p>';
+            }
+        }
     </script>
 </body>
 </html>
