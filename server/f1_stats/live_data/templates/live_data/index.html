@@ -20,6 +20,8 @@
         const roomName = JSON.parse(document.getElementById('room-name').textContent);
         var chart_created = false;
         var chartInstance = null;
+        var datasetInstance = new Array();
+        var driverData = new Map();
 
         const chatSocket = new WebSocket(
             'ws://'
@@ -30,19 +32,12 @@
         );
 
         chatSocket.onmessage = function(e) {
-            // console.log("Here");
-            // console.log(e);
             const data = JSON.parse(e.data);
             document.querySelector('#chat-log').value += (data.message + '\n');
             if(chart_created){
-                console.log("Update");
-                console.log(data.message);
-                console.log(chartInstance);
                 processLaptimeUpdate(data.message);
             }
             else{
-                console.log("Create");
-                console.log(data);
                 initChart(data.message);
             }
         };
@@ -78,46 +73,6 @@
             // Update the timestamp
             racingData.timestamp = data.timestamp || new Date().toISOString();
 
-            // Process each driver's data
-            // Object.entries(data.drivers || {}).forEach(([driverNumber, driverData]) => {
-            //     if (!racingData.drivers[driverNumber]) {
-            //         racingData.drivers[driverNumber] = { laps: [] };
-            //     }
-
-            //     if (driverData.stints) {
-            //         Object.values(driverData.stints).forEach(stint => {
-            //             if (stint.lap_time && stint.lap_number) {
-            //                 // Convert lap time to seconds
-            //                 const lapTimeSeconds = convertLapTimeToSeconds(stint.lap_time);
-
-            //                 // Check if this lap already exists
-            //                 const existingLapIndex = racingData.drivers[driverNumber].laps.findIndex(
-            //                     lap => lap.lap_number === stint.lap_number
-            //                 );
-
-            //                 if (existingLapIndex !== -1) {
-            //                     // Update existing lap
-            //                     racingData.drivers[driverNumber].laps[existingLapIndex] = {
-            //                         lap_number: stint.lap_number,
-            //                         lap_time: lapTimeSeconds,
-            //                         timestamp: data.timestamp
-            //                     };
-            //                 } else {
-            //                     // Add new lap
-            //                     racingData.drivers[driverNumber].laps.push({
-            //                         lap_number: stint.lap_number,
-            //                         lap_time: lapTimeSeconds,
-            //                         timestamp: data.timestamp
-            //                     });
-            //                 }
-
-            //                 // Sort laps by lap number
-            //                 racingData.drivers[driverNumber].laps.sort((a, b) => a.lap_number - b.lap_number);
-            //             }
-            //         });
-            //     }
-            // });
-
             racingData = processRacingData(data);
 
             updateChartData(racingData);
@@ -131,8 +86,6 @@
         }
 
         function processRacingData(data) {
-            // console.log(data);
-            // console.log(typeof data);
             const parsedData = data;
             const chartData = {};
 
@@ -154,56 +107,57 @@
                 return;
             }
 
-            console.log(newData);
-
             // Update existing datasets or add new ones
-            const existingDatasets = chartInstance.data.datasets;
-            const newDatasets = Object.entries(newData.drivers).map(([driverNumber, data], index) => ({
-                label: `Driver ${driverNumber}`,
-                data: data,
-                borderColor: `hsl(${index * 137.5 % 360}, 70%, 50%)`,
-                fill: false
-            }));
-
-            // Remove extra datasets if new data has fewer drivers
-            while (existingDatasets.length > newDatasets.length) {
-                existingDatasets.pop();
-            }
-
-            console.log(newDatasets);
-
-            // Update or add datasets
-            newDatasets.forEach((newDataset, index) => {
-                if (index < existingDatasets.length) {
-                    // Update existing dataset
-                    existingDatasets[index].data = newDataset.data;
-                    existingDatasets[index].label = newDataset.label;
-                } else {
-                    // Add new dataset
-                    existingDatasets.push(newDataset);
+            const newDatasets = Object.entries(newData).map(([driverNumber, data]) => {
+                // console.log(driverData.get(driverNumber));
+                if(driverData.has(driverNumber)){
+                    driverData.get(driverNumber).data.push(...data);
+                }
+                else{
+                    driverData.set( driverNumber, {
+                        label: `Driver ${driverNumber}`,
+                        data: data,
+                        borderColor: `hsl(${driverNumber * 137.5 % 360}, 70%, 50%)`,
+                        fill: false
+                    });
                 }
             });
 
-            console.log(existingDatasets);
+            datasetInstance = [];
+
+            // Update or add datasets
+            driverData.forEach((data, driverNumber, driverData) => {
+                datasetInstance.push(data);
+            });
+
+            chartInstance.data.datasets = datasetInstance;
 
             // Update the chart
             chartInstance.update('none'); // 'none' for better performance
         }
 
         function createChart(chartData) {
-            console.log(chartData);
             const ctx = document.getElementById('racingChart').getContext('2d');
-            const datasets = Object.entries(chartData).map(([driverNumber, data], index) => ({
-                label: `Driver ${driverNumber}`,
-                data: data,
-                borderColor: `hsl(${index * 137.5 % 360}, 70%, 50%)`,
-                fill: false
-            }));
+            datasetInstance = Object.entries(chartData).map(([driverNumber, data], index) => {
+                let val = {
+                    label: `Driver ${driverNumber}`,
+                    data: data,
+                    borderColor: `hsl(${index * 137.5 % 360}, 70%, 50%)`,
+                    fill: false
+                };
+                if(driverData.has(driverNumber)){
+                    driverData.get(driverNumber).data.push(...data)
+                }
+                else{
+                    driverData.set(driverNumber, val);
+                }
+                return val;
+            });
 
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: { 
-                    datasets: datasets,
+                    datasets: datasetInstance,
                     labels: [1,2,3,4,5,6,7,8,9,10]
                 },
                 options: {
@@ -215,6 +169,9 @@
                             title: {
                                 display: true,
                                 text: 'Lap Number'
+                            },
+                            ticks: {
+                                stepSize:1
                             }
                         },
                         y: {
@@ -235,10 +192,6 @@
                     }
                 }
             });
-
-            
-            console.log(chartInstance);
-            console.log(datasets);
         }
 
         // Process the data and create the chart

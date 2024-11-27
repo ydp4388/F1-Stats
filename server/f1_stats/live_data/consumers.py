@@ -15,9 +15,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await self.accept()
 
-        # print(self.room_group_name)
-        # print(self.channel_layer)
-        add.delay(1,2,None)
+        add.apply_async((None), {'where': None})
         # await self.channel_layer.group_send('chat_chat',{
         #     "type": "chat_message",
         #     "message": "Test2"
@@ -37,10 +35,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_send(
             self.room_group_name, {"type": "chat_message", "message": message}
         )
-
-        # print(text_data)
-        # add.delay(1,2,'test')
-        # print(11)
 
     # Receive message from room group
     async def chat_message(self, event):
