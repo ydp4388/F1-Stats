@@ -29,12 +29,12 @@ def parseData(text: str) -> json:
 
 
         for driver_number, driver_data in lines_data.items():
-            driver_name = "UNK"
+            driver_name = "UNK " + driver_number
             driver_color = 'rgb(0,0,0)'
             driver_info = {}
             if int(driver_number) in drivers.keys():
-                dr_name = drivers.get(int(driver_number))
-                dr_color = colors.get(int(driver_number))
+                driver_name = drivers.get(int(driver_number))
+                driver_color = colors.get(int(driver_number))
             
             if 'Stints' in driver_data:
                 driver_info["stints"] = {}
@@ -44,8 +44,11 @@ def parseData(text: str) -> json:
                             "lap_number": stint_data['LapNumber'],
                             "lap_time": stint_data['LapTime']
                         }
+                        driver_info['name'] = driver_name
+                        driver_info['color'] = driver_color
             
             if driver_info.get("stints") and driver_info.get("stints") != {}:
+                print(driver_info)
                 result.get("drivers")[driver_number] = driver_info
                 
     except Exception as e:

@@ -89,14 +89,23 @@
             const parsedData = data;
             const chartData = {};
 
+            // console.log(data);
+
             Object.entries(parsedData.drivers).forEach(([driverNumber, driverData]) => {
                 if (driverData.stints) {
-                    chartData[driverNumber] = Object.values(driverData.stints).map(stint => ({
+                    console.log(driverData);
+                    chartData[driverNumber] = {};
+                    
+                    chartData[driverNumber]['lap'] = Object.values(driverData.stints).map(stint => ({
                         x: stint.lap_number,
                         y: convertLapTimeToSeconds(stint.lap_time)
                     }));
+                    chartData[driverNumber]['name'] = driverData.name;
+                    chartData[driverNumber]['color'] = driverData.color;
                 }
             });
+
+            console.log(chartData);
 
             return chartData;
         }
@@ -115,9 +124,9 @@
                 }
                 else{
                     driverData.set( driverNumber, {
-                        label: `Driver ${driverNumber}`,
-                        data: data,
-                        borderColor: `hsl(${driverNumber * 137.5 % 360}, 70%, 50%)`,
+                        label: data.name,
+                        data: data.lap,
+                        borderColor: data.color,
                         fill: false
                     });
                 }
@@ -140,9 +149,9 @@
             const ctx = document.getElementById('racingChart').getContext('2d');
             datasetInstance = Object.entries(chartData).map(([driverNumber, data], index) => {
                 let val = {
-                    label: `Driver ${driverNumber}`,
-                    data: data,
-                    borderColor: `hsl(${index * 137.5 % 360}, 70%, 50%)`,
+                    label: data.name,
+                    data: data.lap,
+                    borderColor: data.color,
                     fill: false
                 };
                 if(driverData.has(driverNumber)){
@@ -153,6 +162,8 @@
                 }
                 return val;
             });
+
+            console.log(datasetInstance);
 
             chartInstance = new Chart(ctx, {
                 type: 'line',
@@ -177,8 +188,9 @@
                         y: {
                             title: {
                                 display: true,
-                                text: 'Lap Time (seconds)'
-                            }
+                                text: 'Lap Time'
+                            },
+                            type: 'time'
                         }
                     },
                     plugins: {
